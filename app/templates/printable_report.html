@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetGuard AI — Executive Network Audit Report</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #ffffff;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 2rem;
+        }
+        .report-header {
+            border-bottom: 2px solid #0284c7;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .report-table th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+        .report-table td {
+            font-size: 0.85rem;
+        }
+        .stat-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print mb-4 d-flex justify-content-between align-items-center bg-light p-3 rounded">
+        <div>
+            <strong>Print Preview:</strong> Press the print button or Ctrl+P to generate PDF/Print.
+        </div>
+        <div>
+            <button onclick="window.print()" class="btn btn-primary btn-sm">
+                Print / Save as PDF
+            </button>
+            <button onclick="window.close()" class="btn btn-secondary btn-sm ms-2">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <div class="report-header d-flex justify-content-between align-items-end">
+        <div>
+            <h1 class="h3 fw-bold text-dark mb-1">NETGUARD AI &mdash; NETWORK AUDIT REPORT</h1>
+            <div class="text-muted small">Intelligent Network Traffic Monitoring and Anomaly Detection System</div>
+            <div class="text-muted small">Final-Year Computer Networks Engineering Project Evaluation</div>
+        </div>
+        <div class="text-end">
+            <div class="small fw-bold">Report Generated:</div>
+            <div class="small text-muted font-monospace">{{ summary.generated_at }}</div>
+        </div>
+    </div>
+
+    <!-- Period & Summary -->
+    <h2 class="h5 fw-bold mb-3">1. Executive Telemetry Summary</h2>
+    <div class="row g-3 mb-4">
+        <div class="col-3">
+            <div class="stat-box">
+                <div class="small text-muted">Total Data Points</div>
+                <div class="h4 fw-bold mb-0 text-primary">{{ summary.total_metrics_collected }}</div>
+            </div>
+        </div>
+        <div class="col-3">
+            <div class="stat-box">
+                <div class="small text-muted">Peak Inbound Rate</div>
+                <div class="h4 fw-bold mb-0 text-dark">{{ summary.max_download_mbps }} Mbps</div>
+            </div>
+        </div>
+        <div class="col-3">
+            <div class="stat-box">
+                <div class="small text-muted">Peak Outbound Rate</div>
+                <div class="h4 fw-bold mb-0 text-dark">{{ summary.max_upload_mbps }} Mbps</div>
+            </div>
+        </div>
+        <div class="col-3">
+            <div class="stat-box">
+                <div class="small text-muted">Health Index</div>
+                <div class="h4 fw-bold mb-0 text-success">{{ summary.latest_health_score }}%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <table class="table table-bordered table-sm report-table">
+            <tbody>
+                <tr>
+                    <td class="fw-bold bg-light" style="width: 25%;">Audit Window:</td>
+                    <td>{{ summary.period_start }} to {{ summary.period_end }}</td>
+                    <td class="fw-bold bg-light" style="width: 25%;">Avg Packet Velocity:</td>
+                    <td>{{ summary.avg_packet_rate_pps }} packets/sec</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold bg-light">Mean Inbound Bitrate:</td>
+                    <td>{{ summary.avg_download_mbps }} Mbps</td>
+                    <td class="fw-bold bg-light">Mean Outbound Bitrate:</td>
+                    <td>{{ summary.avg_upload_mbps }} Mbps</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold bg-light">Total Alerts Recorded:</td>
+                    <td>{{ summary.total_alerts }} alerts</td>
+                    <td class="fw-bold bg-light">Active / Critical Alerts:</td>
+                    <td>{{ summary.active_alerts }} active / {{ summary.critical_alerts }} critical</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="h5 fw-bold mb-3">2. Recent Telemetry Observations Sample</h2>
+    <div class="table-responsive mb-4">
+        <table class="table table-bordered table-sm report-table">
+            <thead>
+                <tr>
+                    <th>Timestamp (UTC)</th>
+                    <th>Interface</th>
+                    <th>Source</th>
+                    <th>Inbound (Mbps)</th>
+                    <th>Outbound (Mbps)</th>
+                    <th>Packet Rate (pps)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if metrics %}
+                    {% for m in metrics %}
+                    <tr>
+                        <td class="font-monospace">{{ m.timestamp.strftime('%Y-%m-%d %H:%M:%S') if m.timestamp else '' }}</td>
+                        <td>{{ m.interface_name }}</td>
+                        <td>{{ 'SIMULATED' if m.is_demo else 'REAL HARDWARE' }}</td>
+                        <td>{{ "%.2f"|format(m.download_speed_mbps|default(0.0)) }}</td>
+                        <td>{{ "%.2f"|format(m.upload_speed_mbps|default(0.0)) }}</td>
+                        <td>{{ "%.0f"|format(m.packet_rate_pps|default(0.0)) }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No metric samples logged.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="h5 fw-bold mb-3">3. Verification & Operational Sign-off</h2>
+    <p class="text-muted small">
+        This document certifies the capture and validation of network telemetry records produced by the NetGuard AI monitoring collector.
+    </p>
+
+    <div class="row g-4 mt-4 pt-3">
+        <div class="col-6">
+            <div class="border-top pt-2">
+                <div class="fw-bold small">System Operator / Network Analyst</div>
+                <div class="text-muted small">Signature & Date: _________________________</div>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="border-top pt-2">
+                <div class="fw-bold small">Project Supervisor / Faculty Examiner</div>
+                <div class="text-muted small">Signature & Date: _________________________</div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

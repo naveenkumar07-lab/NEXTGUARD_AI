@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Network Health Analyzer — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">Network Health Analyzer</h2>
+        <p class="text-muted small mb-0">Multi-point socket probes measuring round-trip latency, jitter variance, packet loss, and composite health score.</p>
+    </div>
+
+    <!-- On Demand Diagnosis Form -->
+    <div class="d-flex align-items-center gap-2">
+        <div class="input-group input-group-sm" style="max-width: 260px;">
+            <span class="input-group-text bg-dark border-secondary border-opacity-50 text-muted small">Target:</span>
+            <input type="text" id="healthTargetInput" class="form-control soc-input" value="8.8.8.8" placeholder="IP or Host">
+        </div>
+        <button id="btnRunHealthCheck" class="btn btn-sm btn-soc-primary text-nowrap">
+            <i class="bi bi-play-circle"></i> Run Probe
+        </button>
+    </div>
+</div>
+
+<!-- Primary Health Indicators -->
+<div class="row g-3 mb-4">
+    <!-- Composite Health Score -->
+    <div class="col-lg-3">
+        <div class="soc-card text-center h-100 d-flex flex-column justify-content-center align-items-center p-4">
+            <div class="stat-label mb-2">COMPOSITE HEALTH SCORE</div>
+            <div class="display-3 fw-bold font-monospace text-success my-2" id="healthScoreDisplay">
+                {{ current_health.health_score }}%
+            </div>
+            <span class="badge badge-soc badge-live-pulse" id="healthStatusDisplay">
+                {{ current_health.status_label }}
+            </span>
+            <div class="text-muted small mt-2">Target: {{ current_health.target_host }}</div>
+        </div>
+    </div>
+
+    <!-- Latency Probe -->
+    <div class="col-lg-3">
+        <div class="soc-card h-100">
+            <div class="stat-label">Round-Trip Latency</div>
+            <div class="metric-stat-box mt-2">
+                <div class="metric-icon-bubble bubble-cyan">
+                    <i class="bi bi-stopwatch"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="latencyDisplay">
+                        {% if current_health.latency_ms is not none %}{{ current_health.latency_ms }} ms{% else %}Unavailable{% endif %}
+                    </div>
+                    <div class="stat-subtext">Socket handshake latency</div>
+                </div>
+            </div>
+            <div class="small text-muted mt-3 pt-2 border-top border-secondary border-opacity-10">
+                Nominal: &lt; 30 ms &bull; Fair: &lt; 80 ms
+            </div>
+        </div>
+    </div>
+
+    <!-- Jitter (Latency Variance) -->
+    <div class="col-lg-3">
+        <div class="soc-card h-100">
+            <div class="stat-label">Network Jitter</div>
+            <div class="metric-stat-box mt-2">
+                <div class="metric-icon-bubble bubble-blue">
+                    <i class="bi bi-soundwave"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="jitterDisplay">
+                        {% if current_health.jitter_ms is not none %}{{ current_health.jitter_ms }} ms{% else %}Unavailable{% endif %}
+                    </div>
+                    <div class="stat-subtext">Successive probe delta</div>
+                </div>
+            </div>
+            <div class="small text-muted mt-3 pt-2 border-top border-secondary border-opacity-10">
+                Low variance indicates stable queues.
+            </div>
+        </div>
+    </div>
+
+    <!-- Packet Loss Estimate -->
+    <div class="col-lg-3">
+        <div class="soc-card h-100">
+            <div class="stat-label">Packet Loss Estimate</div>
+            <div class="metric-stat-box mt-2">
+                <div class="metric-icon-bubble bubble-amber">
+                    <i class="bi bi-x-octagon"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="lossDisplay">
+                        {{ current_health.packet_loss_pct }}%
+                    </div>
+                    <div class="stat-subtext">Failed probe ratio</div>
+                </div>
+            </div>
+            <div class="small text-muted mt-3 pt-2 border-top border-secondary border-opacity-10">
+                Optimal: 0.0% loss.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Diagnostics & Health Formula Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-clipboard-pulse text-info"></i> Diagnostic Findings & Bottlenecks
+                </h3>
+            </div>
+            <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 mb-3">
+                <div class="text-muted small fw-bold mb-1">OBSERVED BOTTLENECKS:</div>
+                <div class="text-white" id="bottlenecksDisplay">{{ current_health.bottlenecks or 'None detected.' }}</div>
+            </div>
+            <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                <div class="text-muted small fw-bold mb-1">RECOMMENDED ACTIONS:</div>
+                <div class="text-info" id="recommendationsDisplay">{{ current_health.recommendations or 'Network operation normal.' }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-calculator text-info"></i> Health Score Formula Specification
+                </h3>
+            </div>
+            <p class="text-muted small">
+                The Composite Network Health Score evaluates operational stability across 3 weighted vectors:
+            </p>
+            <div class="p-3 rounded bg-dark bg-opacity-70 border border-secondary border-opacity-25 font-monospace text-info small mb-3">
+                Score = 100 - Penalty<sub>Latency</sub> - Penalty<sub>Jitter</sub> - Penalty<sub>PacketLoss</sub>
+            </div>
+            <ul class="text-muted small ps-3 mb-0">
+                <li><strong>Latency Penalty:</strong> Scaled above baseline 20ms up to 250ms (max -40 points).</li>
+                <li><strong>Jitter Penalty:</strong> Scaled above 5ms up to 50ms (max -30 points).</li>
+                <li><strong>Loss Penalty:</strong> Linear deduction per dropped probe (max -30 points).</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Health Check History -->
+<div class="soc-card">
+    <div class="soc-card-header">
+        <h3 class="soc-card-title">
+            <i class="bi bi-clock-history text-info"></i> Historical Health Diagnosis Logs
+        </h3>
+        <span class="badge bg-secondary font-monospace">{{ history|length }} checks</span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="soc-table">
+            <thead>
+                <tr>
+                    <th>Timestamp (UTC)</th>
+                    <th>Target Destination</th>
+                    <th>Health Score</th>
+                    <th>Latency</th>
+                    <th>Jitter</th>
+                    <th>Packet Loss</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if history %}
+                    {% for h in history %}
+                    <tr>
+                        <td class="font-monospace small">{{ h.timestamp.strftime('%Y-%m-%d %H:%M:%S') if h.timestamp else 'N/A' }}</td>
+                        <td class="font-monospace text-white">{{ h.target_host }}</td>
+                        <td class="font-monospace fw-bold text-success">{{ h.health_score }}%</td>
+                        <td class="font-monospace text-info">{% if h.latency_ms is not none %}{{ h.latency_ms }} ms{% else %}Unavailable{% endif %}</td>
+                        <td class="font-monospace text-primary">{% if h.jitter_ms is not none %}{{ h.jitter_ms }} ms{% else %}Unavailable{% endif %}</td>
+                        <td class="font-monospace text-warning">{{ h.packet_loss_pct }}%</td>
+                        <td><span class="badge badge-soc badge-live-pulse">{{ h.status_label }}</span></td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            No historical diagnostic logs stored yet.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const btnProbe = document.getElementById('btnRunHealthCheck');
+    const targetInput = document.getElementById('healthTargetInput');
+
+    if (btnProbe) {
+        btnProbe.addEventListener('click', async () => {
+            const host = targetInput ? targetInput.value.trim() : '8.8.8.8';
+            btnProbe.disabled = true;
+            btnProbe.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Probing...';
+
+            const res = await apiCall('/api/health/check', 'POST', { target_host: host });
+            btnProbe.disabled = false;
+            btnProbe.innerHTML = '<i class="bi bi-play-circle"></i> Run Probe';
+
+            if (res && res.ok && res.data) {
+                const d = res.data;
+                document.getElementById('healthScoreDisplay').textContent = d.health_score + '%';
+                document.getElementById('healthStatusDisplay').textContent = d.status_label;
+                document.getElementById('latencyDisplay').textContent = d.latency_ms !== null ? d.latency_ms + ' ms' : 'Unavailable';
+                document.getElementById('jitterDisplay').textContent = d.jitter_ms !== null ? d.jitter_ms + ' ms' : 'Unavailable';
+                document.getElementById('lossDisplay').textContent = d.packet_loss_pct + '%';
+                document.getElementById('bottlenecksDisplay').textContent = d.bottlenecks;
+                document.getElementById('recommendationsDisplay').textContent = d.recommendations;
+                showToast(`Probe to ${d.target_host} complete. Health: ${d.health_score}%`, 'success');
+            } else {
+                showToast('Health probe failed', 'danger');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

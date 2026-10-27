@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Reports & Export — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">Executive Reports & Audit Export</h2>
+        <p class="text-muted small mb-0">Generate comprehensive telemetry summaries, printable SOC audit reports, and RFC-4180 CSV datasets.</p>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('reports.printable_report') }}" target="_blank" class="btn btn-soc-outline">
+            <i class="bi bi-printer"></i> Printable Audit Report
+        </a>
+    </div>
+</div>
+
+<!-- Executive Summary Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="soc-card text-center">
+            <div class="stat-label">TOTAL SAMPLES LOGGED</div>
+            <div class="display-6 fw-bold font-monospace text-info my-2">{{ summary.total_metrics_collected }}</div>
+            <div class="text-muted small">Period: {{ summary.period_start }} to {{ summary.period_end }}</div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="soc-card text-center">
+            <div class="stat-label">PEAK INBOUND RATE</div>
+            <div class="display-6 fw-bold font-monospace text-cyan my-2">{{ summary.max_download_mbps }} Mbps</div>
+            <div class="text-muted small">Average: {{ summary.avg_download_mbps }} Mbps</div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="soc-card text-center">
+            <div class="stat-label">PEAK OUTBOUND RATE</div>
+            <div class="display-6 fw-bold font-monospace text-primary my-2">{{ summary.max_upload_mbps }} Mbps</div>
+            <div class="text-muted small">Average: {{ summary.avg_upload_mbps }} Mbps</div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="soc-card text-center">
+            <div class="stat-label">INCIDENT ALERTS</div>
+            <div class="display-6 fw-bold font-monospace text-warning my-2">{{ summary.total_alerts }}</div>
+            <div class="text-muted small">Active: {{ summary.active_alerts }} | Critical: {{ summary.critical_alerts }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Options Card -->
+<div class="soc-card mb-4">
+    <div class="soc-card-header">
+        <h3 class="soc-card-title">
+            <i class="bi bi-cloud-arrow-down text-info"></i> Direct Dataset Exports
+        </h3>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h4 class="h6 text-white fw-bold mb-1">Network Metrics Dataset (CSV)</h4>
+                    <p class="text-muted small">
+                        Complete raw time-series measurements including timestamp, download/upload throughput, packet rate, bytes received/sent, and protocol distribution breakdown.
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('api.api_export_metrics_csv') }}" class="btn btn-soc-primary btn-sm">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Download Metrics CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h4 class="h6 text-white fw-bold mb-1">Security Alerts Log (CSV)</h4>
+                    <p class="text-muted small">
+                        Chronological record of generated alerts with severity level, trigger explanation, resolution timestamps, and operator actions.
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('api.api_export_alerts_csv') }}" class="btn btn-soc-outline btn-sm">
+                        <i class="bi bi-file-earmark-ruled"></i> Download Alerts CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

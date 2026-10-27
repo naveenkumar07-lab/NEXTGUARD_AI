@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Live Network Monitoring — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">Live Network Traffic Monitoring</h2>
+        <p class="text-muted small mb-0">Hardware interface statistics, throughput meters, and authorized packet capture analysis.</p>
+    </div>
+    
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge badge-soc {% if snapshot.is_demo %}badge-demo-sim{% else %}badge-live-pulse{% endif %}">
+            {% if snapshot.is_demo %}SIMULATED MODE{% else %}REAL HARDWARE{% endif %}
+        </span>
+    </div>
+</div>
+
+<!-- Collector Controller Card -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-hdd-network text-info"></i> Collector Controls
+                </h3>
+                <span class="badge badge-soc {% if snapshot.is_monitoring %}badge-live-pulse{% else %}bg-secondary{% endif %}">
+                    {% if snapshot.is_monitoring %}COLLECTOR ACTIVE{% else %}STOPPED{% endif %}
+                </span>
+            </div>
+
+            <div class="mb-3">
+                <label for="interfaceSelect" class="form-label text-muted small fw-semibold">SELECT HOST INTERFACE</label>
+                <select id="interfaceSelect" class="form-select soc-select">
+                    {% for iface in interfaces %}
+                    <option value="{{ iface.name }}" {% if iface.name == snapshot.interface_name %}selected{% endif %}>
+                        {{ iface.name }} (IPv4: {{ iface.ipv4 }}{% if iface.is_up %} - UP{% else %} - DOWN{% endif %})
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text text-muted small">Reads real hardware I/O byte and packet counters via psutil kernel hooks.</div>
+            </div>
+
+            <div class="mb-4">
+                <label for="monitorInterval" class="form-label text-muted small fw-semibold">SAMPLING INTERVAL (SECONDS)</label>
+                <input type="number" step="0.5" min="0.5" max="10.0" id="monitorInterval" class="form-control soc-input" value="2.0">
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+                <button id="btnStartReal" class="btn btn-soc-primary">
+                    <i class="bi bi-play-circle"></i> Start Real Interface
+                </button>
+                <button id="btnStartDemo" class="btn btn-soc-outline">
+                    <i class="bi bi-cpu"></i> Start Demo Mode
+                </button>
+                <button id="btnStopMonitor" class="btn btn-soc-danger ms-auto">
+                    <i class="bi bi-stop-circle"></i> Stop Collector
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Telemetry Status Gauges -->
+    <div class="col-lg-6">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-speedometer text-info"></i> Current Transfer Gauges
+                </h3>
+                <span class="text-muted small">Active: <span id="activeInterfaceDisplay" class="text-white fw-bold">{{ snapshot.interface_name }}</span></span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-6">
+                    <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 text-center">
+                        <div class="stat-label">Inbound Throughput</div>
+                        <div class="stat-value text-info mt-1" id="liveDownBps">
+                            {{ "%.2f"|format(snapshot.download_speed_mbps|default(0.0)) }} Mbps
+                        </div>
+                        <div class="text-muted small mt-1">Download rate</div>
+                    </div>
+                </div>
+
+                <div class="col-6">
+                    <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 text-center">
+                        <div class="stat-label">Outbound Throughput</div>
+                        <div class="stat-value text-primary mt-1" id="liveUpBps">
+                            {{ "%.2f"|format(snapshot.upload_speed_mbps|default(0.0)) }} Mbps
+                        </div>
+                        <div class="text-muted small mt-1">Upload rate</div>
+                    </div>
+                </div>
+
+                <div class="col-4">
+                    <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 text-center">
+                        <div class="stat-label">Packet Rate</div>
+                        <div class="stat-value text-success mt-1" id="livePps" style="font-size: 1.15rem;">
+                            {{ "%.0f"|format(snapshot.packet_rate_pps|default(0.0)) }} pps
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-4">
+                    <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 text-center">
+                        <div class="stat-label">Bytes In</div>
+                        <div class="stat-value text-white mt-1" id="liveBytesRecv" style="font-size: 1.05rem;">
+                            {{ snapshot.bytes_recv|default(0) }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-4">
+                    <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 text-center">
+                        <div class="stat-label">Bytes Out</div>
+                        <div class="stat-value text-white mt-1" id="liveBytesSent" style="font-size: 1.05rem;">
+                            {{ snapshot.bytes_sent|default(0) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Module 4: Scapy Packet Capture & Protocol Inspection -->
+<div class="soc-card mb-4">
+    <div class="soc-card-header">
+        <div>
+            <h3 class="soc-card-title">
+                <i class="bi bi-shield-shaded text-info"></i> Scapy Deep Packet Inspection Subsystem
+            </h3>
+            <div class="text-muted small">
+                Authorized packet layer classification (TCP, UDP, ICMP, DNS). Strict privacy guarantee: no payload contents, credentials, or private data are logged.
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            {% if scapy_status.is_capturing %}
+            <span class="badge badge-soc badge-live-pulse">SNIFFER ACTIVE</span>
+            <button id="btnStopCapture" class="btn btn-sm btn-soc-danger">Stop Capture</button>
+            {% else %}
+            <span class="badge badge-soc bg-secondary">SNIFFER IDLE</span>
+            <button id="btnStartCapture" class="btn btn-sm btn-soc-primary">Start Packet Capture</button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if scapy_status.permission_error %}
+    <div class="alert alert-warning border-0 d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-shield-exclamation fs-4"></i>
+        <div>
+            <strong>Driver / Permission Limitation:</strong> {{ scapy_status.permission_error }}
+            <div class="small">Standard interface counters and synthetic demonstration mode remain completely functional without privileged raw socket drivers.</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-3">
+        <div class="col-md-3">
+            <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                <div class="stat-label">Packets Sniffed</div>
+                <div class="stat-value text-info">{{ scapy_status.captured_packets_count }}</div>
+                <div class="text-muted small mt-1">Header metadata inspected</div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                <div class="stat-label mb-2">Protocol Distribution (Captured Packets)</div>
+                <div class="d-flex flex-wrap gap-3">
+                    <div><span class="text-muted small">TCP:</span> <strong class="text-info">{{ scapy_status.protocol_counts.tcp }}</strong></div>
+                    <div><span class="text-muted small">UDP:</span> <strong class="text-primary">{{ scapy_status.protocol_counts.udp }}</strong></div>
+                    <div><span class="text-muted small">ICMP:</span> <strong class="text-warning">{{ scapy_status.protocol_counts.icmp }}</strong></div>
+                    <div><span class="text-muted small">DNS:</span> <strong class="text-success">{{ scapy_status.protocol_counts.dns }}</strong></div>
+                    <div><span class="text-muted small">HTTP:</span> <strong class="text-white">{{ scapy_status.protocol_counts.http }}</strong></div>
+                    <div><span class="text-muted small">HTTPS:</span> <strong class="text-info">{{ scapy_status.protocol_counts.https }}</strong></div>
+                    <div><span class="text-muted small">Other:</span> <strong class="text-muted">{{ scapy_status.protocol_counts.other }}</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Sanitized Packet Metadata Table -->
+    {% if scapy_status.recent_packets %}
+    <div class="table-responsive mt-3">
+        <table class="soc-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Protocol</th>
+                    <th>Source IP : Port</th>
+                    <th>Destination IP : Port</th>
+                    <th>Packet Length</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in scapy_status.recent_packets %}
+                <tr>
+                    <td class="font-monospace small">{{ p.timestamp }}</td>
+                    <td><span class="badge bg-secondary font-monospace">{{ p.protocol }}</span></td>
+                    <td class="font-monospace">{{ p.src_ip }}{% if p.src_port %}:{{ p.src_port }}{% endif %}</td>
+                    <td class="font-monospace">{{ p.dst_ip }}{% if p.dst_port %}:{{ p.dst_port }}{% endif %}</td>
+                    <td class="font-monospace text-info">{{ p.length_bytes }} bytes</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/monitoring.js') }}"></script>
+{% endblock %}

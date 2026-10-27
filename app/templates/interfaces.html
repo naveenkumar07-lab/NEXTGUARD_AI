@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Network Interfaces — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">Host Network Interfaces</h2>
+        <p class="text-muted small mb-0">Hardware network adapters detected on the local host operating system.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    {% for iface in interfaces %}
+    <div class="col-md-6 col-xl-4">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <div>
+                    <h3 class="soc-card-title">
+                        <i class="bi bi-ethernet text-info"></i> {{ iface.name }}
+                    </h3>
+                </div>
+                {% if iface.is_up %}
+                <span class="badge badge-soc badge-live-pulse">LINK UP</span>
+                {% else %}
+                <span class="badge badge-soc bg-secondary">LINK DOWN</span>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                <div class="d-flex justify-content-between py-1 border-bottom border-secondary border-opacity-10 small">
+                    <span class="text-muted">IPv4 Address:</span>
+                    <span class="font-monospace text-white">{{ iface.ipv4 }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1 border-bottom border-secondary border-opacity-10 small">
+                    <span class="text-muted">MAC Address:</span>
+                    <span class="font-monospace text-white">{{ iface.mac }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1 border-bottom border-secondary border-opacity-10 small">
+                    <span class="text-muted">Interface Speed:</span>
+                    <span class="font-monospace text-info">{% if iface.speed_mbps %}{{ iface.speed_mbps }} Mbps{% else %}Auto / Unknown{% endif %}</span>
+                </div>
+            </div>
+
+            <div class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 small">
+                <div class="d-flex justify-content-between text-muted">
+                    <span>Recv: <strong class="text-white">{{ iface.bytes_recv|default(0) }}</strong> B</span>
+                    <span>Sent: <strong class="text-white">{{ iface.bytes_sent|default(0) }}</strong> B</span>
+                </div>
+                <div class="d-flex justify-content-between text-muted mt-1">
+                    <span>Pkts Recv: {{ iface.packets_recv|default(0) }}</span>
+                    <span>Pkts Sent: {{ iface.packets_sent|default(0) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

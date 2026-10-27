@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Active Sockets & Connections — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">Local Network Sockets & Connections</h2>
+        <p class="text-muted small mb-0">Authorized local TCP/UDP socket telemetry, socket state inspection, and associated process mappings.</p>
+    </div>
+    <span class="badge bg-secondary font-monospace">{{ total_count }} active sockets</span>
+</div>
+
+{% if permission_limited %}
+<div class="alert alert-info soc-card mb-4" role="alert">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle-fill text-info fs-5"></i>
+        <div>
+            <strong>Operating System Security Notice:</strong>
+            Full system-wide socket table with external process mapping on Windows and Linux requires Administrator/Root privileges. Standard user privileges display user-level and accessible socket endpoints.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Filters Card -->
+<div class="soc-card mb-4">
+    <form method="GET" action="{{ url_for('connections.connections_page') }}" class="row g-2 align-items-center">
+        <div class="col-md-3">
+            <label class="text-muted small fw-semibold">PROTOCOL</label>
+            <select name="proto" class="form-select soc-select form-select-sm">
+                <option value="ALL" {% if proto_filter == 'ALL' %}selected{% endif %}>All Protocols</option>
+                <option value="TCP" {% if proto_filter == 'TCP' %}selected{% endif %}>TCP Only</option>
+                <option value="UDP" {% if proto_filter == 'UDP' %}selected{% endif %}>UDP Only</option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="text-muted small fw-semibold">CONNECTION STATE</label>
+            <select name="status" class="form-select soc-select form-select-sm">
+                <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>All States</option>
+                <option value="ESTABLISHED" {% if status_filter == 'ESTABLISHED' %}selected{% endif %}>ESTABLISHED</option>
+                <option value="LISTEN" {% if status_filter == 'LISTEN' %}selected{% endif %}>LISTEN</option>
+                <option value="TIME_WAIT" {% if status_filter == 'TIME_WAIT' %}selected{% endif %}>TIME_WAIT</option>
+                <option value="CLOSE_WAIT" {% if status_filter == 'CLOSE_WAIT' %}selected{% endif %}>CLOSE_WAIT</option>
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="text-muted small fw-semibold">SEARCH SOCKET / PROCESS</label>
+            <input type="text" name="q" class="form-control soc-input form-control-sm" placeholder="e.g. 80, 443, python, chrome" value="{{ search_query }}">
+        </div>
+
+        <div class="col-md-2 d-flex gap-2 align-items-end pt-3">
+            <button type="submit" class="btn btn-sm btn-soc-primary w-100">Filter</button>
+            <a href="{{ url_for('connections.connections_page') }}" class="btn btn-sm btn-soc-outline">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Connections Table -->
+<div class="soc-card">
+    <div class="table-responsive">
+        <table class="soc-table">
+            <thead>
+                <tr>
+                    <th>Protocol</th>
+                    <th>Local Address & Port</th>
+                    <th>Remote Address & Port</th>
+                    <th>Connection State</th>
+                    <th>PID</th>
+                    <th>Process Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if connections %}
+                    {% for c in connections %}
+                    <tr>
+                        <td>
+                            <span class="badge {% if c.proto == 'TCP' %}bg-primary{% else %}bg-info text-dark{% endif %} font-monospace">
+                                {{ c.proto }}
+                            </span>
+                        </td>
+                        <td class="font-monospace text-white">{{ c.local_addr }}</td>
+                        <td class="font-monospace text-info">{{ c.remote_addr }}</td>
+                        <td>
+                            <span class="badge badge-soc {% if c.status == 'ESTABLISHED' %}badge-live-pulse{% elif c.status == 'LISTEN' %}bg-secondary{% else %}bg-dark border border-secondary border-opacity-50{% endif %}">
+                                {{ c.status }}
+                            </span>
+                        </td>
+                        <td class="font-monospace text-muted">{{ c.pid }}</td>
+                        <td class="text-white fw-semibold">{{ c.proc_name }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            No connections match the applied filter criteria.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

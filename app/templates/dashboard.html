@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}SOC Dashboard — NetGuard AI{% endblock %}
+
+{% block content %}
+<!-- Top SOC Control Bar -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">SOC Telemetry Overview</h2>
+        <p class="text-muted small mb-0">Real-time throughput metrics, protocol analysis, and algorithmic anomaly surveillance.</p>
+    </div>
+
+    <!-- Quick Scenario Switcher & Controls -->
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2 bg-dark bg-opacity-50 p-1 px-2 rounded border border-secondary border-opacity-25">
+            <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Scenario:</span>
+            <select id="quickScenarioSelect" class="form-select form-select-sm soc-select" style="width: 175px;">
+                <option value="NORMAL" {% if current_scenario == 'NORMAL' %}selected{% endif %}>Normal Flow</option>
+                <option value="TRAFFIC_SPIKE" {% if current_scenario == 'TRAFFIC_SPIKE' %}selected{% endif %}>Traffic Spike (+150M)</option>
+                <option value="PORT_SCAN" {% if current_scenario == 'PORT_SCAN' %}selected{% endif %}>Port Scan (SYN burst)</option>
+                <option value="DATA_EXFILTRATION" {% if current_scenario == 'DATA_EXFILTRATION' %}selected{% endif %}>Data Exfiltration</option>
+                <option value="DDOS_ATTACK" {% if current_scenario == 'DDOS_ATTACK' %}selected{% endif %}>DDoS Volumetric</option>
+            </select>
+        </div>
+
+        {% if not collector_active %}
+        <button id="btnStartMonitoring" class="btn btn-sm btn-soc-primary">
+            <i class="bi bi-play-fill"></i> Start Collector
+        </button>
+        {% else %}
+        <button id="btnStopMonitoring" class="btn btn-sm btn-soc-danger">
+            <i class="bi bi-stop-fill"></i> Stop Collector
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 6 Primary KPI Metric Cards -->
+<div class="row g-3 mb-4">
+    <!-- Download Throughput -->
+    <div class="col-sm-6 col-xl-2">
+        <div class="soc-card h-100">
+            <div class="stat-label">Inbound Speed</div>
+            <div class="metric-stat-box">
+                <div class="metric-icon-bubble bubble-cyan">
+                    <i class="bi bi-arrow-down-left"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="statDownloadSpeed">{{ "%.2f"|format(snapshot.download_speed_mbps|default(0.0)) }}</div>
+                    <div class="stat-subtext">Mbps</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Throughput -->
+    <div class="col-sm-6 col-xl-2">
+        <div class="soc-card h-100">
+            <div class="stat-label">Outbound Speed</div>
+            <div class="metric-stat-box">
+                <div class="metric-icon-bubble bubble-blue">
+                    <i class="bi bi-arrow-up-right"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="statUploadSpeed">{{ "%.2f"|format(snapshot.upload_speed_mbps|default(0.0)) }}</div>
+                    <div class="stat-subtext">Mbps</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Packet Transfer Rate -->
+    <div class="col-sm-6 col-xl-2">
+        <div class="soc-card h-100">
+            <div class="stat-label">Packet Rate</div>
+            <div class="metric-stat-box">
+                <div class="metric-icon-bubble bubble-green">
+                    <i class="bi bi-reception-4"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="statPacketRate">{{ "%.0f"|format(snapshot.packet_rate_pps|default(0.0)) }}</div>
+                    <div class="stat-subtext">packets/sec</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Score -->
+    <div class="col-sm-6 col-xl-2">
+        <div class="soc-card h-100">
+            <div class="stat-label">Network Health</div>
+            <div class="metric-stat-box">
+                <div class="metric-icon-bubble bubble-green">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <div>
+                    <div class="stat-value text-success" id="networkHealthScore">96%</div>
+                    <div class="stat-subtext">Composite index</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Inbound Volume -->
+    <div class="col-sm-6 col-xl-2">
+        <div class="soc-card h-100">
+            <div class="stat-label">Total Received</div>
+            <div class="metric-stat-box">
+                <div class="metric-icon-bubble bubble-cyan">
+                    <i class="bi bi-cloud-arrow-down"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="statTotalRecv" style="font-size: 1.25rem;">--</div>
+                    <div class="stat-subtext">Cumulative bytes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Outbound Volume -->
+    <div class="col-sm-6 col-xl-2">
+        <div class="soc-card h-100">
+            <div class="stat-label">Total Sent</div>
+            <div class="metric-stat-box">
+                <div class="metric-icon-bubble bubble-blue">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="statTotalSent" style="font-size: 1.25rem;">--</div>
+                    <div class="stat-subtext">Cumulative bytes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Real-time Charts Row -->
+<div class="row g-3 mb-4">
+    <!-- Live Bandwidth Stream Chart -->
+    <div class="col-xl-8">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <div>
+                    <h3 class="soc-card-title">
+                        <i class="bi bi-graph-up text-info"></i> Live Bandwidth Telemetry
+                    </h3>
+                    <div class="text-muted small">Inbound & outbound bitrate trends sampled continuously.</div>
+                </div>
+                <span class="badge badge-soc badge-live-pulse">LIVE STREAM</span>
+            </div>
+            <div style="height: 290px;">
+                <canvas id="bandwidthChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Protocol Breakdown Chart -->
+    <div class="col-xl-4">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <div>
+                    <h3 class="soc-card-title">
+                        <i class="bi bi-pie-chart text-info"></i> Protocol Distribution
+                    </h3>
+                    <div class="text-muted small">Layer 4/7 traffic classification.</div>
+                </div>
+                <a href="{{ url_for('monitoring.monitoring_dashboard') }}" class="btn btn-sm btn-link text-info text-decoration-none p-0">Details &rarr;</a>
+            </div>
+            <div style="height: 290px;" class="d-flex align-items-center justify-content-center">
+                <canvas id="protocolChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Security & Anomaly Stream Table -->
+<div class="soc-card">
+    <div class="soc-card-header">
+        <div>
+            <h3 class="soc-card-title">
+                <i class="bi bi-exclamation-triangle text-warning"></i> Recent Anomaly & Alert Detections
+            </h3>
+            <div class="text-muted small">Dual engine: deterministic rule evaluation and unsupervised Isolation Forest inferences.</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('analytics.analytics_page') }}" class="btn btn-sm btn-soc-outline">
+                <i class="bi bi-cpu"></i> AI Engine
+            </a>
+            <a href="{{ url_for('alerts.alerts_page') }}" class="btn btn-sm btn-soc-outline">
+                <i class="bi bi-bell"></i> All Alerts
+            </a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="soc-table">
+            <thead>
+                <tr>
+                    <th>Timestamp (UTC)</th>
+                    <th>Severity</th>
+                    <th>Detection Engine</th>
+                    <th>Metric / Pattern</th>
+                    <th>Observed Value</th>
+                    <th>Assessment & Explanation</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if recent_anomalies %}
+                    {% for a in recent_anomalies %}
+                    <tr>
+                        <td class="font-monospace small">{{ a.timestamp.strftime('%H:%M:%S') if a.timestamp else 'N/A' }}</td>
+                        <td>
+                            <span class="badge badge-soc badge-{{ a.severity|lower }}">
+                                {{ a.severity }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-dark border border-secondary border-opacity-50 font-monospace" style="font-size: 0.72rem;">
+                                {{ a.detection_method }}
+                            </span>
+                        </td>
+                        <td class="fw-bold text-white">{{ a.title }}</td>
+                        <td class="font-monospace text-info">{{ a.observed_value }}</td>
+                        <td class="small text-muted" style="max-width: 320px;">{{ a.explanation }}</td>
+                        <td>
+                            <a href="{{ url_for('alerts.alerts_page') }}" class="btn btn-sm btn-soc-outline py-0 px-2 small">
+                                Review
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="bi bi-check2-circle text-success fs-3 d-block mb-1"></i>
+                            No anomalies recorded in current session. Network flow nominal.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

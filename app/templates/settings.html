@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">System & Telemetry Settings</h2>
+        <p class="text-muted small mb-0">Tune algorithmic thresholds, adjust sampling velocity, manage demo scenarios, and operator credentials.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Rule Threshold Settings Form -->
+    <div class="col-lg-6">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-sliders text-info"></i> Anomaly Detection Thresholds
+                </h3>
+            </div>
+
+            <form method="POST" action="{{ url_for('settings.settings_page') }}">
+                <input type="hidden" name="action" value="thresholds">
+
+                <div class="mb-3">
+                    <label for="download_threshold" class="form-label text-muted small fw-semibold">DOWNLOAD ALERT THRESHOLD (MBPS)</label>
+                    <input type="number" step="1" id="download_threshold" name="download_threshold" class="form-control soc-input" value="{{ detector.download_threshold_mbps }}" required>
+                    <div class="form-text text-muted small">Triggers High severity alert when inbound throughput breaches this value.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="upload_threshold" class="form-label text-muted small fw-semibold">UPLOAD ALERT THRESHOLD (MBPS)</label>
+                    <input type="number" step="1" id="upload_threshold" name="upload_threshold" class="form-control soc-input" value="{{ detector.upload_threshold_mbps }}" required>
+                    <div class="form-text text-muted small">Signals potential egress spike or data exfiltration.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="packet_rate_threshold" class="form-label text-muted small fw-semibold">PACKET FLOOD THRESHOLD (PPS)</label>
+                    <input type="number" step="100" id="packet_rate_threshold" name="packet_rate_threshold" class="form-control soc-input" value="{{ detector.packet_rate_threshold_pps }}" required>
+                    <div class="form-text text-muted small">Flags packet rate surge (DDoS / broadcast storm indicator).</div>
+                </div>
+
+                <div class="row g-2 mb-4">
+                    <div class="col-6">
+                        <label for="cooldown_seconds" class="form-label text-muted small fw-semibold">ALERT COOLDOWN (SEC)</label>
+                        <input type="number" id="cooldown_seconds" name="cooldown_seconds" class="form-control soc-input" value="{{ detector.cooldown_seconds }}" required>
+                    </div>
+                    <div class="col-6">
+                        <label for="monitor_interval" class="form-label text-muted small fw-semibold">SAMPLING INTERVAL (SEC)</label>
+                        <input type="number" step="0.5" id="monitor_interval" name="monitor_interval" class="form-control soc-input" value="{{ collector.interval }}" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-soc-primary">
+                    <i class="bi bi-save"></i> Save Threshold Configuration
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Simulation Scenarios + Password Change -->
+    <div class="col-lg-6">
+        <!-- Simulation Scenario Switcher Card -->
+        <div class="soc-card mb-4">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-cpu text-info"></i> Demonstration Simulation Scenarios
+                </h3>
+                <span class="badge badge-soc badge-demo-sim">DEMO CONTROL</span>
+            </div>
+
+            <form method="POST" action="{{ url_for('settings.settings_page') }}">
+                <input type="hidden" name="action" value="demo_scenario">
+
+                <div class="mb-3">
+                    <label for="scenario" class="form-label text-muted small fw-semibold">SELECT ACTIVE SYNTHETIC TRAFFIC SCENARIO</label>
+                    <select name="scenario" id="scenario" class="form-select soc-select">
+                        {% for sc in scenarios %}
+                        <option value="{{ sc }}" {% if sc == demo_generator.current_scenario %}selected{% endif %}>
+                            {{ sc }} &mdash;
+                            {% if sc == 'NORMAL' %}Organic web browsing, HTTPS & TCP mix
+                            {% elif sc == 'TRAFFIC_SPIKE' %}Sudden 150+ Mbps download surge
+                            {% elif sc == 'PORT_SCAN' %}Rapid TCP SYN burst & packet flood
+                            {% elif sc == 'DATA_EXFILTRATION' %}Heavy egress outbound upload spike
+                            {% elif sc == 'DDOS_ATTACK' %}Volumetric multi-thousand PPS flood{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-soc-outline">
+                    <i class="bi bi-arrow-repeat"></i> Apply Scenario
+                </button>
+            </form>
+        </div>
+
+        <!-- Operator Password Update Card -->
+        <div class="soc-card">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-shield-lock text-info"></i> Update Operator Password
+                </h3>
+            </div>
+
+            <form method="POST" action="{{ url_for('settings.settings_page') }}">
+                <input type="hidden" name="action" value="password">
+
+                <div class="mb-2">
+                    <label for="current_password" class="form-label text-muted small fw-semibold">CURRENT PASSWORD</label>
+                    <input type="password" id="current_password" name="current_password" class="form-control soc-input" required>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label for="new_password" class="form-label text-muted small fw-semibold">NEW PASSWORD</label>
+                        <input type="password" id="new_password" name="new_password" class="form-control soc-input" required>
+                    </div>
+                    <div class="col-6">
+                        <label for="confirm_password" class="form-label text-muted small fw-semibold">CONFIRM PASSWORD</label>
+                        <input type="password" id="confirm_password" name="confirm_password" class="form-control soc-input" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-soc-primary">
+                    <i class="bi bi-key"></i> Update Credentials
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

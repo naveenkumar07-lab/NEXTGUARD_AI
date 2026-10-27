@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}AI Anomaly Detection — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">AI Anomaly Detection Engine</h2>
+        <p class="text-muted small mb-0">Unsupervised Machine Learning (Isolation Forest) paired with deterministic threshold surveillance.</p>
+    </div>
+
+    <div>
+        <button id="btnTrainML" class="btn btn-soc-primary">
+            <i class="bi bi-cpu"></i> Train / Re-fit Isolation Forest
+        </button>
+    </div>
+</div>
+
+<!-- Architecture Dual Engine Summary Cards -->
+<div class="row g-3 mb-4">
+    <!-- Unsupervised ML Card -->
+    <div class="col-lg-6">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-robot text-info"></i> Isolation Forest (scikit-learn)
+                </h3>
+                {% if ml_status.is_trained %}
+                <span class="badge badge-soc badge-live-pulse">MODEL TRAINED & ACTIVE</span>
+                {% else %}
+                <span class="badge badge-soc bg-secondary">UNINITIALIZED</span>
+                {% endif %}
+            </div>
+
+            <p class="text-muted small">
+                Unsupervised anomaly detection algorithm that constructs an ensemble of isolation trees to isolate multivariate outliers with few partitions.
+            </p>
+
+            <div class="mb-3 p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 small">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Training Baseline Samples:</span>
+                    <strong class="text-white font-monospace">{{ ml_status.sample_count }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Contamination Ratio:</span>
+                    <strong class="text-info font-monospace">0.05 (5%)</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Last Baseline Calibration:</span>
+                    <span class="text-muted font-monospace">{{ ml_status.last_trained or 'At Startup' }}</span>
+                </div>
+            </div>
+
+            <div class="small text-muted">
+                <strong>Feature Vector:</strong>
+                <div class="d-flex flex-wrap gap-1 mt-1">
+                    {% for f in ml_status.features %}
+                    <span class="badge bg-secondary bg-opacity-25 text-info font-monospace">{{ f }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rule-Based Deterministic Engine Card -->
+    <div class="col-lg-6">
+        <div class="soc-card h-100">
+            <div class="soc-card-header">
+                <h3 class="soc-card-title">
+                    <i class="bi bi-shield-check text-info"></i> Deterministic Rule Engine
+                </h3>
+                <span class="badge badge-soc badge-live-pulse">CONTINUOUS MONITOR</span>
+            </div>
+
+            <p class="text-muted small">
+                Deterministic threshold guards preventing link exhaustion, bandwidth spikes, outbound egress exfiltration, and high PPS flood surges.
+            </p>
+
+            <div class="row g-2 small">
+                <div class="col-6">
+                    <div class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                        <div class="text-muted">Download Guard</div>
+                        <strong class="text-info font-monospace fs-6">&gt; {{ thresholds.download_mbps }} Mbps</strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                        <div class="text-muted">Upload Guard</div>
+                        <strong class="text-primary font-monospace fs-6">&gt; {{ thresholds.upload_mbps }} Mbps</strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                        <div class="text-muted">Packet Flood Guard</div>
+                        <strong class="text-warning font-monospace fs-6">&gt; {{ thresholds.packet_rate_pps }} PPS</strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                        <div class="text-muted">Alert Cooldown</div>
+                        <strong class="text-success font-monospace fs-6">{{ thresholds.cooldown_sec }}s window</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <a href="{{ url_for('settings.settings_page') }}" class="btn btn-sm btn-soc-outline w-100">
+                    <i class="bi bi-sliders"></i> Modify Rule Thresholds
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Anomaly Records Table -->
+<div class="soc-card">
+    <div class="soc-card-header">
+        <div>
+            <h3 class="soc-card-title">
+                <i class="bi bi-list-check text-info"></i> Recorded Anomaly Telemetry Events
+            </h3>
+            <div class="text-muted small">Suspicious pattern records flagged with root-cause explanation and recommended remediation.</div>
+        </div>
+        <span class="badge bg-secondary font-monospace">{{ anomalies|length }} recorded</span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="soc-table">
+            <thead>
+                <tr>
+                    <th>Timestamp (UTC)</th>
+                    <th>Severity</th>
+                    <th>Engine</th>
+                    <th>Title & Pattern</th>
+                    <th>Observed / Threshold</th>
+                    <th>Explanation</th>
+                    <th>Recommendation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if anomalies %}
+                    {% for a in anomalies %}
+                    <tr>
+                        <td class="font-monospace small text-nowrap">{{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') if a.timestamp else 'N/A' }}</td>
+                        <td>
+                            <span class="badge badge-soc badge-{{ a.severity|lower }}">{{ a.severity }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-dark border border-secondary border-opacity-50 font-monospace small">
+                                {{ a.detection_method }}
+                            </span>
+                        </td>
+                        <td class="fw-bold text-white">{{ a.title }}</td>
+                        <td class="font-monospace text-info small">
+                            {{ a.observed_value }} {% if a.threshold_value %}/ {{ a.threshold_value }}{% endif %}
+                        </td>
+                        <td class="small text-muted" style="max-width: 250px;">{{ a.explanation }}</td>
+                        <td class="small text-info" style="max-width: 250px;">{{ a.recommendation }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="bi bi-shield-check text-success fs-3 d-block mb-1"></i>
+                            No anomalies detected in session. Baseline metrics are within normal boundaries.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const btnTrain = document.getElementById('btnTrainML');
+    if (btnTrain) {
+        btnTrain.addEventListener('click', async () => {
+            btnTrain.disabled = true;
+            btnTrain.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Fitting Baseline...';
+            const res = await apiCall('/api/analytics/train-ml', 'POST', { contamination: 0.05 });
+            btnTrain.disabled = false;
+            btnTrain.innerHTML = '<i class="bi bi-cpu"></i> Train / Re-fit Isolation Forest';
+            if (res && res.ok) {
+                showToast(res.data.message, 'success');
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                showToast(res ? res.data.message : 'Model fitting failed', 'danger');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

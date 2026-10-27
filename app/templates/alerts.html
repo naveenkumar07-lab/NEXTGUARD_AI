@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Security Alerts Management — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">Security Alerts & Incident Management</h2>
+        <p class="text-muted small mb-0">Persistent telemetry alert queue with suppression cooldown and lifecycle workflow.</p>
+    </div>
+
+    <!-- Alert Status KPI Badges -->
+    <div class="d-flex gap-2">
+        <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50 px-3 py-2">
+            Active: <strong>{{ active_count }}</strong>
+        </span>
+        <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-50 px-3 py-2">
+            Acknowledged: <strong>{{ ack_count }}</strong>
+        </span>
+        <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 px-3 py-2">
+            Resolved: <strong>{{ res_count }}</strong>
+        </span>
+    </div>
+</div>
+
+<!-- Filters & Search Form -->
+<div class="soc-card mb-4">
+    <form method="GET" action="{{ url_for('alerts.alerts_page') }}" class="row g-2 align-items-center">
+        <div class="col-md-3">
+            <label class="text-muted small fw-semibold">SEVERITY</label>
+            <select name="severity" class="form-select soc-select form-select-sm">
+                <option value="ALL" {% if severity_filter == 'ALL' %}selected{% endif %}>All Severities</option>
+                <option value="CRITICAL" {% if severity_filter == 'CRITICAL' %}selected{% endif %}>Critical</option>
+                <option value="HIGH" {% if severity_filter == 'HIGH' %}selected{% endif %}>High</option>
+                <option value="MEDIUM" {% if severity_filter == 'MEDIUM' %}selected{% endif %}>Medium</option>
+                <option value="LOW" {% if severity_filter == 'LOW' %}selected{% endif %}>Low</option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="text-muted small fw-semibold">STATUS</label>
+            <select name="status" class="form-select soc-select form-select-sm">
+                <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>All Statuses</option>
+                <option value="ACTIVE" {% if status_filter == 'ACTIVE' %}selected{% endif %}>Active</option>
+                <option value="ACKNOWLEDGED" {% if status_filter == 'ACKNOWLEDGED' %}selected{% endif %}>Acknowledged</option>
+                <option value="RESOLVED" {% if status_filter == 'RESOLVED' %}selected{% endif %}>Resolved</option>
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="text-muted small fw-semibold">SEARCH</label>
+            <input type="text" name="q" class="form-control soc-input form-control-sm" placeholder="Title, category, description" value="{{ search_query }}">
+        </div>
+
+        <div class="col-md-2 d-flex gap-2 align-items-end pt-3">
+            <button type="submit" class="btn btn-sm btn-soc-primary w-100">Filter</button>
+            <a href="{{ url_for('alerts.alerts_page') }}" class="btn btn-sm btn-soc-outline">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Alerts Table -->
+<div class="soc-card">
+    <div class="table-responsive">
+        <table class="soc-table">
+            <thead>
+                <tr>
+                    <th>Alert ID</th>
+                    <th>Timestamp (UTC)</th>
+                    <th>Severity</th>
+                    <th>Category</th>
+                    <th>Title & Description</th>
+                    <th>Status</th>
+                    <th>Workflow Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if alerts %}
+                    {% for a in alerts %}
+                    <tr id="alert-row-{{ a.id }}">
+                        <td class="font-monospace small">#{{ a.id }}</td>
+                        <td class="font-monospace small text-nowrap">{{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') if a.timestamp else 'N/A' }}</td>
+                        <td>
+                            <span class="badge badge-soc badge-{{ a.severity|lower }}">{{ a.severity }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-dark border border-secondary border-opacity-50 font-monospace small">
+                                {{ a.category }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="fw-bold text-white">{{ a.title }}</div>
+                            <div class="small text-muted" style="max-width: 380px;">{{ a.description }}</div>
+                        </td>
+                        <td>
+                            {% if a.status == 'ACTIVE' %}
+                            <span class="badge bg-danger text-white">ACTIVE</span>
+                            {% elif a.status == 'ACKNOWLEDGED' %}
+                            <span class="badge bg-warning text-dark">ACKNOWLEDGED</span>
+                            {% else %}
+                            <span class="badge bg-success text-white">RESOLVED</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                {% if a.status == 'ACTIVE' %}
+                                <button class="btn btn-sm btn-soc-outline py-0 px-2 btn-ack" data-id="{{ a.id }}" title="Acknowledge Alert">
+                                    <i class="bi bi-eye"></i> Ack
+                                </button>
+                                {% endif %}
+                                {% if a.status != 'RESOLVED' %}
+                                <button class="btn btn-sm btn-soc-primary py-0 px-2 btn-res" data-id="{{ a.id }}" title="Resolve Alert">
+                                    <i class="bi bi-check2"></i> Resolve
+                                </button>
+                                {% else %}
+                                <span class="text-muted small">Closed</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="bi bi-bell-slash fs-3 d-block mb-1"></i>
+                            No alerts matching filter criteria found.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Handle Acknowledge Button
+    document.querySelectorAll('.btn-ack').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            btn.disabled = true;
+            const res = await apiCall(`/api/alerts/${id}/acknowledge`, 'POST');
+            if (res && res.ok) {
+                showToast(`Alert #${id} acknowledged`, 'info');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast('Failed to acknowledge alert', 'danger');
+                btn.disabled = false;
+            }
+        });
+    });
+
+    // Handle Resolve Button
+    document.querySelectorAll('.btn-res').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            btn.disabled = true;
+            const res = await apiCall(`/api/alerts/${id}/resolve`, 'POST');
+            if (res && res.ok) {
+                showToast(`Alert #${id} marked as resolved`, 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast('Failed to resolve alert', 'danger');
+                btn.disabled = false;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Traffic History — NetGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h4 text-white fw-bold mb-1">Historical Network Telemetry</h2>
+        <p class="text-muted small mb-0">Persistent log of recorded throughput counters, transfer velocities, and packet distributions.</p>
+    </div>
+
+    <div>
+        <a href="{{ url_for('api.api_export_metrics_csv') }}" class="btn btn-sm btn-soc-primary">
+            <i class="bi bi-download"></i> Export History CSV
+        </a>
+    </div>
+</div>
+
+<div class="soc-card">
+    <div class="soc-card-header">
+        <h3 class="soc-card-title">
+            <i class="bi bi-database text-info"></i> Recorded Telemetry Points
+        </h3>
+        <span class="badge bg-secondary font-monospace">{{ metrics|length }} snapshots</span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="soc-table">
+            <thead>
+                <tr>
+                    <th>Timestamp (UTC)</th>
+                    <th>Interface</th>
+                    <th>Data Source</th>
+                    <th>Download (Mbps)</th>
+                    <th>Upload (Mbps)</th>
+                    <th>Packet Rate</th>
+                    <th>TCP Pkts</th>
+                    <th>UDP Pkts</th>
+                    <th>HTTPS Pkts</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if metrics %}
+                    {% for m in metrics %}
+                    <tr>
+                        <td class="font-monospace small text-nowrap">{{ m.timestamp.strftime('%Y-%m-%d %H:%M:%S') if m.timestamp else 'N/A' }}</td>
+                        <td class="font-monospace text-white">{{ m.interface_name }}</td>
+                        <td>
+                            <span class="badge badge-soc {% if m.is_demo %}badge-demo-sim{% else %}badge-live-pulse{% endif %}">
+                                {% if m.is_demo %}SIMULATED{% else %}REAL{% endif %}
+                            </span>
+                        </td>
+                        <td class="font-monospace text-info">{{ "%.2f"|format(m.download_speed_mbps|default(0.0)) }}</td>
+                        <td class="font-monospace text-primary">{{ "%.2f"|format(m.upload_speed_mbps|default(0.0)) }}</td>
+                        <td class="font-monospace text-success">{{ "%.0f"|format(m.packet_rate_pps|default(0.0)) }} pps</td>
+                        <td class="font-monospace text-muted">{{ m.tcp_packets }}</td>
+                        <td class="font-monospace text-muted">{{ m.udp_packets }}</td>
+                        <td class="font-monospace text-muted">{{ m.https_packets }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">
+                            No historical telemetry records found in the database.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
